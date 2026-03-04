@@ -18,19 +18,6 @@ const app = express();
 app.use(cors()); // Allow frontend to connect
 app.use(express.json()); // Read JSON data
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB Connected"))
-    .catch((err) => console.log("Database Error:", err));
-
-// Routes
-app.use("/api/auth", authRoutes);
-app.use("/api/notes", notesRoutes);
-
-// Test Route
-app.get("/", (req, res) => {
-    res.send("Ocean Waves Backend Running 🚀");
-});
 
 // Start server
 const PORT = process.env.PORT || 5000;
