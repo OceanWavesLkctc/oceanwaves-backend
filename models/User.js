@@ -18,14 +18,22 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    rollnumber:
+    {
+        type: Number,
+        required: true,
+        unique: true
+    },
     course:
     {
         type: String,
         required: true,
     },
-    branch: {
-        type: String,
-        required: true
+    phonenumber:
+    {
+        type: Number,
+        required: true,
+        unique: true
     },
     role:
     {
@@ -35,3 +43,4 @@ const userSchema = new mongoose.Schema({
 });
 
 const userModel = mongoose.model("userModel", userSchema);
+export default userModel;
