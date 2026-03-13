@@ -1,48 +1,34 @@
-// authController.js
-import userModel from "../models/User.js";
+import teacherModel from "../models/teacher.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 
-dotenv.config();
 
-export const signup = async (req, res) => {
-    console.log("Signup API hit");
-
+export const teacherSignup = async (req, res) => {
     try {
-        const { name, email, password, rollnumber, course, department, phonenumber, role } = req.body;
+        const { name, email, password, department, role } = req.body;
 
-        const exist = await userModel.findOne({ email });
-        if (exist) {
-            return res.status(400).json({ message: "User already exists" });
-        }
-
-        const rollExist = await userModel.findOne({ rollnumber });
-        if (rollExist) {
-            return res.status(400).json({
-                message: "Roll number already exists"
-            });
+        const teacherexist = await teacherModel.findOne({ email });
+        if (teacherexist) {
+            return res.status(400).json({ message: "Teacher already exists" });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = new userModel({
+        const newTeacher = new teacherModel({
             name,
             email,
             password: hashedPassword,
-            course,
             department,
-            rollnumber,
-            phonenumber,
             role
         });
 
-        await newUser.save();
+        await newTeacher.save();
 
         // IMPORTANT RESPONSE
         res.status(201).json({
             message: "User registered successfully",
-            user: newUser
+            user: newTeacher
         });
 
     } catch (err) {
@@ -51,22 +37,20 @@ export const signup = async (req, res) => {
     }
 };
 
-
-
-export const login = async (req, res) => {
+export const teacherLogin = async (req, res) => {
     console.log("login api hit");
 
     try {
         const { email, password } = req.body;
 
-        const user = await userModel.findOne({ email });
-        if (!user) {
+        const teacher = await teacherModel.findOne({ email });
+        if (!teacher) {
             return res.status("400").json({
-                message: "user not found"
+                message: "teacher not found"
             });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, teacher.password);
 
         if (!isMatch) {
             return res.status(402).json
@@ -76,7 +60,7 @@ export const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            { id: teacher._id, role: teacher.role },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
 
@@ -85,7 +69,7 @@ export const login = async (req, res) => {
         res.status(200).json({
             message: "login successfully",
             token: token,
-            user: user
+            user: teacher
         });
 
     } catch (error) {
@@ -95,10 +79,4 @@ export const login = async (req, res) => {
         });
 
     };
-}
-
-
-
-
-
-
+};

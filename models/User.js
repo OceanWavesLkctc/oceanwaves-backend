@@ -29,6 +29,11 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    department:
+    {
+        type: string,
+        required: true
+    },
     phonenumber:
     {
         type: Number,
