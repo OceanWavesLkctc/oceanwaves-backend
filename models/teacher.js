@@ -2,6 +2,7 @@
 
 import mongoose from "mongoose"
 
+
 const teacherSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -11,7 +12,7 @@ const teacherSchema = new mongoose.Schema({
     {
         type: String,
         required: true,
-        unique: true
+        unique: true,
     },
     password:
     {
@@ -22,13 +23,14 @@ const teacherSchema = new mongoose.Schema({
     department:
     {
         type: String,
-        required: true
+        required: true,
     },
 
     role:
     {
         type: String,
-        enum: ["student", "teacher"]
+        enum: ['teacher'],
+        default: "teacher"
     }
 });
 
