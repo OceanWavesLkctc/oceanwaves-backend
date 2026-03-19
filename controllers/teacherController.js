@@ -45,7 +45,7 @@ export const teacherLogin = async (req, res) => {
 
         const teacher = await teacherModel.findOne({ email });
         if (!teacher) {
-            return res.status("400").json({
+            return res.status(400).json({
                 message: "teacher not found"
             });
         }
@@ -59,12 +59,7 @@ export const teacherLogin = async (req, res) => {
                 });
         }
 
-        const token = jwt.sign(
-            { id: teacher._id, role: teacher.role },
-            process.env.JWT_SECRET,
-            { expiresIn: "1d" }
-
-        );
+        const token = jwt.sign({ id: teacher._id, email: teacher.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
         res.status(200).json({
             message: "login successfully",
@@ -79,4 +74,10 @@ export const teacherLogin = async (req, res) => {
         });
 
     };
+};
+
+
+export const teacherDashboard = async (req, res) => {
+    console.log("here is me");
+    return res.status(200).json({ message: "protected route" })
 };
