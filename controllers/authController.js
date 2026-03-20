@@ -99,6 +99,8 @@ export const login = async (req, res) => {
 
 
 
-
-
+export const studentDashboard = async (req, res) => {
+    console.log("here is me");
+    return res.status(200).json({ message: "protected route" })
+};
 
