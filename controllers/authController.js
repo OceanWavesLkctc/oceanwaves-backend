@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 
-dotenv.config();
+dotenv.config({ path: './oceanwaves.env' });
 
 export const signup = async (req, res) => {
     console.log("Signup API hit");
