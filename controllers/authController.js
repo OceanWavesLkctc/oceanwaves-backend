@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 
-dotenv.config();
+dotenv.config({ path: './oceanwaves.env' });
 
 export const signup = async (req, res) => {
     console.log("Signup API hit");
@@ -76,7 +76,7 @@ export const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            { id: user._id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
 

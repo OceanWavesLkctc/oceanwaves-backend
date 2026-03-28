@@ -3,7 +3,8 @@ import dotenv from "dotenv"
 import express from "express"
 import { signup, login, studentDashboard } from "../controllers/authController.js";
 import { teacherSignup, teacherLogin, teacherDashboard } from "../controllers/teacherController.js";
-import { checkemail, tokenChecked } from "../middleware/teacherMiddleware.js";
+import { checkemail, tokenChecked } from "../middleware/authMiddleware.js";
+import { uploadMiddleware, uploadFile } from "../controllers/fileController.js";
 
 dotenv.config()
 
@@ -14,7 +15,9 @@ router.post("/login", login);
 router.post("/teachersignup", checkemail, teacherSignup);
 router.post("/teacherLogin", teacherLogin);
 router.get("/teacherdashboard", tokenChecked, teacherDashboard);
-router.get("/studentdashboard", tokenChecked, studentDashboard);
+router.post("/teacherUpload", uploadMiddleware, uploadFile);
+
+
 
 
 export default router;

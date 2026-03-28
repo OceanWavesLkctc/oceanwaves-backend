@@ -1,6 +1,3 @@
-
-// Import dotenv to read environment variables
-
 import connectDB from "./config/db.js";
 import express from "express";
 import dotenv from "dotenv";
@@ -8,7 +5,7 @@ import router from "./routes/authRoutes.js";
 
 
 // Load .env file
-dotenv.config();
+dotenv.config({ path: './oceanwaves.env' });
 
 const app = express();
 

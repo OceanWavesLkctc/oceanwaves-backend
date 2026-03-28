@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 
 
+
 export const teacherSignup = async (req, res) => {
     try {
         const { name, email, password, department, role } = req.body;
