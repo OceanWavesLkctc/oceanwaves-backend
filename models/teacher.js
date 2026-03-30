@@ -31,7 +31,9 @@ const teacherSchema = new mongoose.Schema({
         type: String,
         enum: ['teacher'],
         default: "teacher"
-    }
+    },
+    resetPasswordToken: String,
+    resetPasswordExpires: Date
 });
 
 const teacherModel = mongoose.model("teacherModel", teacherSchema);

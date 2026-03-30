@@ -3,8 +3,12 @@ import userModel from "../models/User.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 
 dotenv.config({ path: './oceanwaves.env' });
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const signup = async (req, res) => {
     console.log("Signup API hit");
@@ -97,8 +101,119 @@ export const login = async (req, res) => {
     };
 }
 
+export const logout = async (req, res) => {
+    console.log("logout api hit");
+    try {
+        res.status(200).json({
+            message: "logout successfully",
+            token: ""
+        });
+    } catch (error) {
+        console.log("Logout Error:", error);
+        res.status(500).json({
+            message: "Logout failed"
+        });
+    }
+};
 
+export const forgotPassword = async (req, res) => {
+    try {
+        if (!req.body || !req.body.email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+        const { email } = req.body;
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
 
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
+        await user.save();
 
+        // Returning the token in the API response since there's no email service
+        res.status(200).json({
+            message: "Password reset token generated",
+            resetToken
+        });
+    } catch (error) {
+        console.log("Forgot Password Error:", error);
+        res.status(500).json({ message: "Error generating reset token" });
+    }
+};
 
+export const resetPassword = async (req, res) => {
+    try {
+        if (!req.body || !req.body.token || req.body.newPassword === undefined) {
+            return res.status(400).json({ message: "Token and newPassword are required" });
+        }
+        const { token, newPassword } = req.body;
 
+        const user = await userModel.findOne({
+            resetPasswordToken: token,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: "Invalid or expired token" });
+        }
+
+        const hashedPassword = await bcrypt.hash(String(newPassword), 10);
+        user.password = hashedPassword;
+        user.resetPasswordToken = undefined;
+        user.resetPasswordExpires = undefined;
+        await user.save();
+
+        res.status(200).json({ message: "Password has been reset successfully" });
+    } catch (error) {
+        console.log("Reset Password Error:", error);
+        res.status(500).json({ message: "Error resetting password" });
+    }
+};
+
+export const googleLogin = async (req, res) => {
+    console.log("google login api hit");
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ message: "No Google ID token provided" });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken: idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        
+        const payload = ticket.getPayload();
+        const email = payload['email'];
+
+        const user = await userModel.findOne({ email });
+        
+        if (!user) {
+            // User does not exist. We return a special status asking them to sign up.
+            return res.status(206).json({
+                message: "User not found. Please complete signup with your extra details.",
+                email: email, 
+                name: payload['name']
+            });
+        }
+
+        // Login the user 
+        const token = jwt.sign(
+            { id: user._id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
+
+        res.status(200).json({
+            message: "Google login successful",
+            token: token,
+            user: user
+        });
+
+    } catch (error) {
+        console.log("Google Login Error:", error);
+        res.status(500).json({ message: "Google login failed" });
+    }
+};

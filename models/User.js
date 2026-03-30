@@ -45,7 +45,9 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['student'],
         default: "student"
-    }
+    },
+    resetPasswordToken: String,
+    resetPasswordExpires: Date
 });
 
 const userModel = mongoose.model("userModel", userSchema);
