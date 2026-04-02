@@ -127,6 +127,7 @@ export const forgotPassword = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+<<<<<<< HEAD
         const resetToken = crypto.randomBytes(20).toString('hex');
         user.resetPasswordToken = resetToken;
         user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
@@ -149,6 +150,12 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ message: "Token and newPassword are required" });
         }
         const { token, newPassword } = req.body;
+=======
+export const studentDashboard = async (req, res) => {
+    console.log("here is me");
+    return res.status(200).json({ message: "protected route" })
+};
+>>>>>>> aff730d2520a60a6a26454e97ea95383eeea463b
 
         const user = await userModel.findOne({
             resetPasswordToken: token,
