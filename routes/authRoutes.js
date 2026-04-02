@@ -1,13 +1,8 @@
 //authRoutes.js
 import dotenv from "dotenv"
 import express from "express"
-<<<<<<< HEAD
-import { signup, login, logout, forgotPassword, resetPassword, googleLogin } from "../controllers/authController.js";
-import { teacherSignup, teacherLogin, teacherDashboard, teacherLogout, teacherForgotPassword, teacherResetPassword, teacherGoogleLogin } from "../controllers/teacherController.js";
-=======
 import { signup, login, studentDashboard } from "../controllers/authController.js";
 import { teacherSignup, teacherLogin, teacherDashboard } from "../controllers/teacherController.js";
->>>>>>> aff730d2520a60a6a26454e97ea95383eeea463b
 import { checkemail, tokenChecked } from "../middleware/authMiddleware.js";
 import { uploadMiddleware, uploadFile } from "../controllers/fileController.js";
 
