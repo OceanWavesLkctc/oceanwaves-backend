@@ -27,4 +27,7 @@ router.post("/teacher/reset-password", teacherResetPassword);
 router.get("/teacherdashboard", tokenChecked, teacherDashboard);
 router.post("/teacherUpload", uploadMiddleware, uploadFile);
 
+
+
+
 export default router;

@@ -184,17 +184,17 @@ export const googleLogin = async (req, res) => {
             idToken: idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
-        
+
         const payload = ticket.getPayload();
         const email = payload['email'];
 
         const user = await userModel.findOne({ email });
-        
+
         if (!user) {
             // User does not exist. We return a special status asking them to sign up.
             return res.status(206).json({
                 message: "User not found. Please complete signup with your extra details.",
-                email: email, 
+                email: email,
                 name: payload['name']
             });
         }
