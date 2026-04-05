@@ -7,7 +7,7 @@ const storage = multer.memoryStorage();
 // We are limiting to 10MB because MongoDB document limit is 16MB. Base64 encoding inflates the size by 30%.
 const upload = multer({
     storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // 10MB Limit
+    limits: { fileSize: 30 * 1024 * 1024 }
 });
 
 // Middleware to parse a file regardless of the field name it's sent under

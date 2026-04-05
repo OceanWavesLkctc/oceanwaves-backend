@@ -1,11 +1,10 @@
 //authRoutes.js
 import dotenv from "dotenv"
 import express from "express"
-import { signup, login, logout, forgotPassword, resetPassword/*, googleLogin*/, studentDashboard } from "../controllers/authController.js";
-import { teacherSignup, teacherLogin, teacherDashboard, teacherLogout, teacherForgotPassword, teacherResetPassword/*, teacherGoogleLogin*/ } from "../controllers/teacherController.js";
-import { checkemail, tokenChecked, isTeacher, isStudent } from "../middleware/authMiddleware.js";
-import { uploadMiddleware, uploadFile, updateFile, deleteFile, viewFile } from "../controllers/fileController.js";
-import { submitHelpMessage } from "../controllers/helpController.js";
+import { signup, login, studentDashboard } from "../controllers/authController.js";
+import { teacherSignup, teacherLogin, teacherDashboard } from "../controllers/teacherController.js";
+import { checkemail, tokenChecked } from "../middleware/authMiddleware.js";
+import { uploadMiddleware, uploadFile } from "../controllers/fileController.js";
 
 dotenv.config()
 
@@ -26,13 +25,7 @@ router.post("/teacherLogout", teacherLogout);
 router.post("/teacher/forgot-password", teacherForgotPassword);
 router.post("/teacher/reset-password", teacherResetPassword);
 
-router.get("/teacherdashboard", tokenChecked, isTeacher, teacherDashboard);
-router.post("/teacherUpload", tokenChecked, isTeacher, uploadMiddleware, uploadFile);
-router.put("/teacherFiles/:id", tokenChecked, isTeacher, uploadMiddleware, updateFile);
-router.delete("/teacherFiles/:id", tokenChecked, isTeacher, deleteFile);
-router.get("/teacherFiles/view/:id", viewFile);
-
-// Help Center route for logged-in users and teachers
-router.post("/helpcenter", tokenChecked, submitHelpMessage);
+router.get("/teacherdashboard", tokenChecked, teacherDashboard);
+router.post("/teacherUpload", uploadMiddleware, uploadFile);
 
 export default router;
