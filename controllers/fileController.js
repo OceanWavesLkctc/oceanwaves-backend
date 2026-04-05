@@ -1,66 +1,222 @@
 import fileModel from "../models/fileUpload.js";
-import dotenv from "dotenv";
-import { v2 as cloudinary } from "cloudinary";
+import teacherModel from "../models/teacher.js";
 import multer from "multer";
-
-dotenv.config({ path: './oceanwaves.env' });
-
-cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-
-});
 
 const storage = multer.memoryStorage();
 
+// We are limiting to 10MB because MongoDB document limit is 16MB. Base64 encoding inflates the size by 30%.
 const upload = multer({
     storage,
-    limit: { fileSize: 30 * 1024 * 1024 }
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB Limit
 });
 
-export const uploadMiddleware = upload.single("file");
+// Middleware to parse a file regardless of the field name it's sent under
+export const uploadMiddleware = upload.any();
+
+// Normalizer function to handle subject name inconsistency
+const normalizeSubject = (subjectInput) => {
+    if (!subjectInput) return "Unknown Subject";
+
+    const normalized = subjectInput.trim().toLowerCase();
+
+    const subjectDictionary = {
+        "dbms": "Database Management System",
+        "database management system": "Database Management System",
+        "database": "Database Management System",
+        "os": "Operating Systems",
+        "operating system": "Operating Systems",
+        "operating systems": "Operating Systems",
+        "cn": "Computer Networks",
+        "computer network": "Computer Networks",
+        "computer networks": "Computer Networks",
+        "ds": "Data Structures",
+        "data structure": "Data Structures",
+        "data structures": "Data Structures",
+        "algo": "Algorithms",
+        "algorithms": "Algorithms",
+        "daa": "Design and Analysis of Algorithms",
+        "se": "Software Engineering",
+        "software engineering": "Software Engineering"
+    };
+
+    // If the subject is in our dictionary, return the standard name, otherwise capitalize the input and use it
+    if (subjectDictionary[normalized]) {
+        return subjectDictionary[normalized];
+    }
+
+    // Capitalize first letter of unknown subjects as a fallback
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 export const uploadFile = async (req, res) => {
     try {
-        if (!req.file) {
+        let uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+
+        if (!uploadedFile) {
             return res.status(400).json({ message: "No file uploaded" });
         }
-        const result = await new Promise((resolve, reject) => {
-            const stream = cloudinary.uploader.upload_stream(
-                {
-                    resource_type: "auto",
-                    use_filename: true,
-                    unique_filename: false
-                },
-                (error, result) => {
-                    if (error) reject(error)
-                    else resolve(result)
-                }
-            )
-            stream.end(req.file.buffer);
+
+        const { course, subject, topic } = req.body;
+
+        if (!course || !subject || !topic) {
+            return res.status(400).json({ message: "Course, Subject, and Topic fields are required" });
+        }
+
+        // Convert file buffer to Base64 String
+        const base64String = uploadedFile.buffer.toString('base64');
+
+        // Normalize the subject name to handle inconsistency
+        const standardSubject = normalizeSubject(subject);
+
+        // Assume tokenChecked middleware has set req.user
+        const teacherId = req.user ? req.user.id : null;
+
+        if (!teacherId) {
+            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
+        }
+
+        // Fetch teacher's name automatically from the database
+        const teacher = await teacherModel.findById(teacherId);
+        const actualTeacherName = teacher && teacher.name ? teacher.name : "Unknown Teacher";
+
+        // Save to Database
+        const fileRecord = await fileModel.create({
+            course: course,
+            subject: standardSubject,
+            topic: topic,
+            fileName: uploadedFile.originalname,
+            mimeType: uploadedFile.mimetype,
+            contentBase64: base64String,
+            uploadedBy: teacherId,
+            teacherName: actualTeacherName
         });
 
-        const fileFormat = req.file.originalname?.includes(".") ? req.file.originalname.split(".").pop() : "unknown";
-
-        const fileM = await fileModel.create({
-            url: result.secure_url,
-            public_id: result.public_id,
-            resource_type: result.resource_type,
-            format: result.format || fileFormat || "unknown"
-        });
-
+        // We return the info (exclude the massive base64 string from the success response to save bandwidth)
         return res.status(200).json({
-            message: "File uploaded Sucessfully",
-            cloudinary: result
+            message: "File converted to text and stored in database successfully",
+            resource: {
+                id: fileRecord._id,
+                course: fileRecord.course,
+                subject: fileRecord.subject,
+                topic: fileRecord.topic,
+                fileName: fileRecord.fileName,
+                mimeType: fileRecord.mimeType
+            }
         });
 
     }
     catch (error) {
-        console.log("error: ", error);
+        console.log("Upload error: ", error);
+
+        // Handle multer's limit error specifically
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ message: "File is too large. Maximum size is 10MB to fit in the database." });
+        }
+
         return res.status(500).json({
-            message: "Server error",
+            message: "Server error during upload",
             error: error.message
         });
+    }
+};
+
+export const updateFile = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const teacherId = req.user ? req.user.id : null;
+
+        if (!teacherId) {
+            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
+        }
+
+        const { course, subject, topic } = req.body;
+
+        const file = await fileModel.findOne({ _id: fileId, uploadedBy: teacherId });
+        if (!file) {
+            return res.status(404).json({ message: "File not found or unauthorized" });
+        }
+
+        if (course) file.course = course;
+        if (subject) {
+            file.subject = normalizeSubject(subject);
+        }
+        if (topic) {
+            file.topic = topic;
+        }
+
+        let uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+
+        if (uploadedFile) {
+            file.fileName = uploadedFile.originalname;
+            file.mimeType = uploadedFile.mimetype;
+            file.contentBase64 = uploadedFile.buffer.toString('base64');
+        }
+
+        await file.save();
+
+        return res.status(200).json({
+            message: "File updated successfully",
+            resource: {
+                id: file._id,
+                course: file.course,
+                subject: file.subject,
+                topic: file.topic,
+                fileName: file.fileName,
+                mimeType: file.mimeType
+            }
+        });
+    } catch (error) {
+        console.log("Update file error:", error);
+        if (error.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ message: "File is too large. Maximum size is 10MB." });
+        }
+        return res.status(500).json({ message: "Server error during update" });
+    }
+};
+
+export const deleteFile = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const teacherId = req.user ? req.user.id : null;
+
+        if (!teacherId) {
+            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
+        }
+
+        const file = await fileModel.findOneAndDelete({ _id: fileId, uploadedBy: teacherId });
+        if (!file) {
+            return res.status(404).json({ message: "File not found or unauthorized to delete" });
+        }
+
+        return res.status(200).json({ message: "File deleted successfully", fileId });
+    } catch (error) {
+        console.log("Delete file error:", error);
+        return res.status(500).json({ message: "Server error during deletion" });
+    }
+};
+
+// New endpoint: Retrieve the single file's full data (including Base64 text) natively in JSON
+// New endpoint: Send the pure, readable file natively (NO JSON)
+export const viewFile = async (req, res) => {
+    try {
+        const fileId = req.params.id;
+        const file = await fileModel.findById(fileId);
+
+        if (!file) {
+            return res.status(404).json({ message: "File not found" });
+        }
+
+        // Decode the storage base64 back into the actual, readable file
+        const fileBuffer = Buffer.from(file.contentBase64, 'base64');
+
+        // Set Headers so the frontend completely skips JSON and renders the actual file!
+        res.setHeader('Content-Type', file.mimeType);
+        res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
+
+        // Send the pure readable file
+        return res.send(fileBuffer);
+    } catch (error) {
+        console.log("View file error:", error);
+        return res.status(500).json({ message: "Server error during file fetch" });
     }
 };

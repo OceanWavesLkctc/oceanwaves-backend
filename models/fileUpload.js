@@ -2,28 +2,42 @@ import mongoose from "mongoose"
 
 
 const fileSchema = new mongoose.Schema({
-    url: {
+    course: {
         type: String,
-        required: true
+        required: true,
+        default: "General" 
     },
-    public_id:
-    {
+    subject: {
         type: String,
         required: true,
     },
-
-    resource_type:
-    {
+    topic: {
         type: String,
         required: true,
     },
-
-    format:
-    {
+    fileName: {
         type: String,
         required: true
+    },
+    mimeType: {
+        type: String,
+        required: true
+    },
+    contentBase64: {
+        type: String,
+        required: true
+    },
+    uploadedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'teacherModel',
+        required: true
+    },
+    teacherName: {
+        type: String,
+        required: true,
+        default: "Unknown Teacher"
     }
-});
+}, { timestamps: true });
 
 const fileModel = mongoose.model("fileModel", fileSchema);
 export default fileModel;

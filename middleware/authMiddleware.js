@@ -35,3 +35,19 @@ export const tokenChecked = async (req, res, next) => {
         return res.status(401).json({ message: "no token provided" });
     }
 }
+
+export const isTeacher = async (req, res, next) => {
+    if (req.user && req.user.role === 'teacher') {
+        next();
+    } else {
+        return res.status(403).json({ message: "Access denied. Teachers only." });
+    }
+};
+
+export const isStudent = async (req, res, next) => {
+    if (req.user && req.user.role === 'student') {
+        next();
+    } else {
+        return res.status(403).json({ message: "Access denied. Students only." });
+    }
+};

@@ -1,11 +1,13 @@
 import teacherModel from "../models/teacher.js";
+import fileModel from "../models/fileUpload.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { OAuth2Client } from "google-auth-library";
+// import { OAuth2Client } from "google-auth-library";
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 
 
@@ -64,7 +66,7 @@ export const teacherLogin = async (req, res) => {
                 });
         }
 
-        const token = jwt.sign({ id: teacher._id, email: teacher.email }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        const token = jwt.sign({ id: teacher._id, email: teacher.email, role: teacher.role }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
         res.status(200).json({
             message: "login successfully",
@@ -83,8 +85,22 @@ export const teacherLogin = async (req, res) => {
 
 
 export const teacherDashboard = async (req, res) => {
-    console.log("here is me");
-    return res.status(200).json({ message: "protected route" })
+    try {
+        const teacherId = req.user.id;
+        
+        // Fetch files uploaded by this teacher, sorted by newest first
+        const files = await fileModel.find({ uploadedBy: teacherId })
+            .select('-contentBase64') // Exclude heavy file content
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({ 
+            message: "Welcome to dashboard",
+            files: files
+        });
+    } catch (error) {
+        console.log("Dashboard fetch error:", error);
+        return res.status(500).json({ message: "Error fetching dashboard data" });
+    }
 };
 
 export const teacherLogout = async (req, res) => {
@@ -157,6 +173,7 @@ export const teacherResetPassword = async (req, res) => {
     }
 };
 
+/*
 export const teacherGoogleLogin = async (req, res) => {
     console.log("teacher google login api hit");
     try {
@@ -169,22 +186,22 @@ export const teacherGoogleLogin = async (req, res) => {
             idToken: idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
-        
+
         const payload = ticket.getPayload();
         const email = payload['email'];
 
         const teacher = await teacherModel.findOne({ email });
-        
+
         if (!teacher) {
             return res.status(206).json({
                 message: "Teacher not found. Please complete signup with your extra details.",
-                email: email, 
+                email: email,
                 name: payload['name']
             });
         }
 
         const token = jwt.sign(
-            { id: teacher._id, email: teacher.email },
+            { id: teacher._id, email: teacher.email, role: teacher.role },
             process.env.JWT_SECRET,
             { expiresIn: "1h" }
         );
@@ -200,3 +217,4 @@ export const teacherGoogleLogin = async (req, res) => {
         res.status(500).json({ message: "Google login failed" });
     }
 };
+*/

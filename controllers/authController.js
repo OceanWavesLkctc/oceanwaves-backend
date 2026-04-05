@@ -1,14 +1,16 @@
 // authController.js
 import userModel from "../models/User.js";
+import fileModel from "../models/fileUpload.js";
 import bcrypt from "bcryptjs";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { OAuth2Client } from "google-auth-library";
+// import { OAuth2Client } from "google-auth-library";
 
 dotenv.config({ path: './oceanwaves.env' });
 
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+// const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 
 export const signup = async (req, res) => {
     console.log("Signup API hit");
@@ -80,7 +82,7 @@ export const login = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user._id, email: user.email },
+            { id: user._id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
 
@@ -172,6 +174,7 @@ export const resetPassword = async (req, res) => {
     }
 };
 
+/*
 export const googleLogin = async (req, res) => {
     console.log("google login api hit");
     try {
@@ -184,24 +187,24 @@ export const googleLogin = async (req, res) => {
             idToken: idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
-        
+
         const payload = ticket.getPayload();
         const email = payload['email'];
 
         const user = await userModel.findOne({ email });
-        
+
         if (!user) {
             // User does not exist. We return a special status asking them to sign up.
             return res.status(206).json({
                 message: "User not found. Please complete signup with your extra details.",
-                email: email, 
+                email: email,
                 name: payload['name']
             });
         }
 
         // Login the user 
         const token = jwt.sign(
-            { id: user._id, email: user.email },
+            { id: user._id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
         );
@@ -215,5 +218,33 @@ export const googleLogin = async (req, res) => {
     } catch (error) {
         console.log("Google Login Error:", error);
         res.status(500).json({ message: "Google login failed" });
+    }
+};
+*/
+
+export const studentDashboard = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const student = await userModel.findById(studentId);
+        
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
+
+        const studentCourse = student.course;
+
+        // Fetch files perfectly matched to the student's enrolled course
+        const files = await fileModel.find({ course: studentCourse })
+            .select('-contentBase64') // Keep the dashboard lightweight
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            message: "Student dashboard loaded successfully",
+            course: studentCourse,
+            files: files
+        });
+    } catch (error) {
+        console.log("Student dashboard error:", error);
+        return res.status(500).json({ message: "Server error fetching student dashboard" });
     }
 };
