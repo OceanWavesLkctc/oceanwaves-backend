@@ -34,12 +34,6 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    phonenumber:
-    {
-        type: Number,
-        required: true,
-        unique: true
-    },
     role:
     {
         type: String,
