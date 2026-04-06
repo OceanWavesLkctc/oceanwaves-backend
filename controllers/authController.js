@@ -16,7 +16,7 @@ export const signup = async (req, res) => {
     console.log("Signup API hit");
 
     try {
-        const { name, email, password, rollnumber, course, department, phonenumber, role } = req.body;
+        const { name, email, password, rollnumber, course, department, role } = req.body;
 
         const exist = await userModel.findOne({ email });
         if (exist) {
@@ -39,7 +39,6 @@ export const signup = async (req, res) => {
             course,
             department,
             rollnumber,
-            phonenumber,
             role
         });
 
