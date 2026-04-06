@@ -124,15 +124,32 @@ export const forgotPassword = async (req, res) => {
             return res.status(400).json({ message: "Email is required" });
         }
         const { email } = req.body;
-        const User = await userModel.findOne({ email });
+        const user = await userModel.findOne({ email });
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        const studentDashboard = async (req, res) => {
-            console.log("here is me");
-            return res.status(200).json({ message: "protected route" })
-        };
+        const resetToken = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = resetToken;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
+        await user.save();
+
+        res.status(200).json({
+            message: "Password reset token generated",
+            resetToken
+        });
+    } catch (error) {
+        console.log("Forgot Password Error:", error);
+        res.status(500).json({ message: "Error generating reset token" });
+    }
+};
+
+export const resetPassword = async (req, res) => {
+    try {
+        if (!req.body || !req.body.token || req.body.newPassword === undefined) {
+            return res.status(400).json({ message: "Token and newPassword are required" });
+        }
+        const { token, newPassword } = req.body;
 
         const user = await userModel.findOne({
             resetPasswordToken: token,
