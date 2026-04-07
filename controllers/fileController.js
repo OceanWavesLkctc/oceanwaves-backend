@@ -1,6 +1,9 @@
+import mongoose from "mongoose";
 import fileModel from "../models/fileUpload.js";
 import teacherModel from "../models/teacher.js";
 import multer from "multer";
+import * as XLSX from "xlsx";
+import crypto from "crypto";
 
 const storage = multer.memoryStorage();
 
@@ -62,8 +65,31 @@ export const uploadFile = async (req, res) => {
             return res.status(400).json({ message: "Course, Subject, and Topic fields are required" });
         }
 
+        // Generate a unique Upload ID (e.g., UL-A7B2C)
+        const uploadId = "UL-" + crypto.randomBytes(3).toString('hex').toUpperCase();
+
         // Convert file buffer to Base64 String
         const base64String = uploadedFile.buffer.toString('base64');
+
+        let structuredData = [];
+        // Check if it is an Excel file
+        const excelMimeTypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-excel'
+        ];
+
+        if (excelMimeTypes.includes(uploadedFile.mimetype)) {
+            try {
+                const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                // Convert to JSON
+                structuredData = XLSX.utils.sheet_to_json(worksheet);
+            } catch (excelError) {
+                console.error("Excel parsing error:", excelError);
+                // We'll continue but structuredData will be empty or we could return error
+            }
+        }
 
         // Normalize the subject name to handle inconsistency
         const standardSubject = normalizeSubject(subject);
@@ -75,9 +101,13 @@ export const uploadFile = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
         }
 
-        // Fetch teacher's name automatically from the database
-        const teacher = await teacherModel.findById(teacherId);
-        const actualTeacherName = teacher && teacher.name ? teacher.name : "Unknown Teacher";
+        // Use teacher's name from token, fallback to DB if missing
+        let actualTeacherName = req.user && req.user.name ? req.user.name : null;
+
+        if (!actualTeacherName) {
+            const teacher = await teacherModel.findById(teacherId);
+            actualTeacherName = teacher && teacher.name ? teacher.name : "Unknown Teacher";
+        }
 
         // Save to Database
         const fileRecord = await fileModel.create({
@@ -87,6 +117,8 @@ export const uploadFile = async (req, res) => {
             fileName: uploadedFile.originalname,
             mimeType: uploadedFile.mimetype,
             contentBase64: base64String,
+            structuredContent: structuredData,
+            uploadId: uploadId,
             uploadedBy: teacherId,
             teacherName: actualTeacherName
         });
@@ -100,7 +132,8 @@ export const uploadFile = async (req, res) => {
                 subject: fileRecord.subject,
                 topic: fileRecord.topic,
                 fileName: fileRecord.fileName,
-                mimeType: fileRecord.mimeType
+                mimeType: fileRecord.mimeType,
+                uploadId: fileRecord.uploadId
             }
         });
 
@@ -150,6 +183,22 @@ export const updateFile = async (req, res) => {
             file.fileName = uploadedFile.originalname;
             file.mimeType = uploadedFile.mimetype;
             file.contentBase64 = uploadedFile.buffer.toString('base64');
+
+            // Parse if Excel
+            const excelMimeTypes = [
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-excel'
+            ];
+            if (excelMimeTypes.includes(uploadedFile.mimetype)) {
+                try {
+                    const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    file.structuredContent = XLSX.utils.sheet_to_json(worksheet);
+                } catch (excelError) {
+                    console.error("Excel update parsing error:", excelError);
+                }
+            }
         }
 
         await file.save();

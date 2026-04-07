@@ -36,6 +36,15 @@ const fileSchema = new mongoose.Schema({
         type: String,
         required: true,
         default: "Unknown Teacher"
+    },
+    structuredContent: {
+        type: Array,
+        default: []
+    },
+    uploadId: {
+        type: String,
+        unique: true,
+        required: true
     }
 }, { timestamps: true });
 

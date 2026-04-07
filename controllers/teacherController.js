@@ -15,6 +15,10 @@ export const teacherSignup = async (req, res) => {
     try {
         const { name, email, password, department, role } = req.body;
 
+        if (!name) {
+            return res.status(400).json({ message: "Teacher name is required" });
+        }
+
         const teacherexist = await teacherModel.findOne({ email });
         if (teacherexist) {
             return res.status(400).json({ message: "Teacher already exists" });
@@ -66,7 +70,16 @@ export const teacherLogin = async (req, res) => {
                 });
         }
 
-        const token = jwt.sign({ id: teacher._id, email: teacher.email, role: teacher.role }, process.env.JWT_SECRET, { expiresIn: "30d" });
+        const token = jwt.sign(
+            {
+                id: teacher._id,
+                email: teacher.email,
+                name: teacher.name,
+                role: teacher.role
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
+        );
 
         res.status(200).json({
             message: "login successfully",
@@ -87,13 +100,13 @@ export const teacherLogin = async (req, res) => {
 export const teacherDashboard = async (req, res) => {
     try {
         const teacherId = req.user.id;
-        
+
         // Fetch files uploaded by this teacher, sorted by newest first
         const files = await fileModel.find({ uploadedBy: teacherId })
             .select('-contentBase64') // Exclude heavy file content
             .sort({ createdAt: -1 });
 
-        return res.status(200).json({ 
+        return res.status(200).json({
             message: "Welcome to dashboard",
             files: files
         });
