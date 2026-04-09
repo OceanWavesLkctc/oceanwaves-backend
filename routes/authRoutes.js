@@ -17,7 +17,7 @@ router.post("/login", login);
 router.post("/logout", logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
-router.get("/studentdashboard", tokenChecked, isStudent, studentDashboard);
+// router.get("/studentdashboard", tokenChecked, isStudent, studentDashboard);
 
 // Teacher Routes
 router.post("/teachersignup", checkemail, teacherSignup);
@@ -25,7 +25,7 @@ router.post("/teacherLogin", teacherLogin);
 router.post("/teacherLogout", teacherLogout);
 router.post("/teacher/forgot-password", teacherForgotPassword);
 router.post("/teacher/reset-password", teacherResetPassword);
-router.get("/teacherdashboard", tokenChecked, isTeacher, teacherDashboard);
+// router.get("/teacherdashboard", tokenChecked, isTeacher, teacherDashboard);
 
 // File Management (Teacher only)
 router.post("/teacherUpload", tokenChecked, isTeacher, uploadMiddleware, uploadFile);
