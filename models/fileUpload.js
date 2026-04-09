@@ -1,18 +1,5 @@
 import mongoose from "mongoose";
 
-const questionSchema = new mongoose.Schema({
-    question: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    answer: {
-        type: String,
-        required: true,
-        trim: true
-    }
-}, { _id: false });
-
 const fileSchema = new mongoose.Schema({
     course: {
         type: String,
@@ -21,33 +8,35 @@ const fileSchema = new mongoose.Schema({
     },
     subject: {
         type: String,
-        required: true
+        required: true,
     },
     topic: {
         type: String,
-        required: true
+        required: true,
     },
-
     uploadedBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'teacherModel',
         required: true
     },
-
-    teacherName: {
-        type: String,
-        default: "Unknown Teacher"
-    },
-
-    questions: [questionSchema], // ✅ structured data
-
     uploadId: {
         type: String,
         unique: true,
         required: true
+    },
+    questions: {
+        type: [
+            {
+                question: { type: String, required: true },
+                answer: { type: String, required: true }
+            }
+        ],
+        default: []
     }
-
 }, { timestamps: true });
+
+// Unique index to prevent duplicate uploads per teacher/course/subject/topic
+fileSchema.index({ uploadedBy: 1, course: 1, subject: 1, topic: 1 }, { unique: true });
 
 const fileModel = mongoose.model("fileModel", fileSchema);
 export default fileModel;

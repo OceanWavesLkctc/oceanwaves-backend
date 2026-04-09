@@ -1,271 +1,180 @@
 import mongoose from "mongoose";
+import uploadMiddleware from "../middleware/uploadMiddleware.js";
 import fileModel from "../models/fileUpload.js";
-import teacherModel from "../models/teacher.js";
-import multer from "multer";
-import * as XLSX from "xlsx";
 import crypto from "crypto";
+import * as XLSX from "xlsx";
 
-const storage = multer.memoryStorage();
-
-// We are limiting to 10MB because MongoDB document limit is 16MB. Base64 encoding inflates the size by 30%.
-const upload = multer({
-    storage,
-    limits: { fileSize: 30 * 1024 * 1024 }
-});
-
-// Middleware to parse a file regardless of the field name it's sent under
-export const uploadMiddleware = upload.any();
-
-// Normalizer function to handle subject name inconsistency
+// Helper to normalize subject names
 const normalizeSubject = (subjectInput) => {
     if (!subjectInput) return "Unknown Subject";
-
     const normalized = subjectInput.trim().toLowerCase();
-
-    const subjectDictionary = {
+    const subjectDict = {
         "dbms": "Database Management System",
         "database management system": "Database Management System",
         "database": "Database Management System",
         "os": "Operating Systems",
         "operating system": "Operating Systems",
-        "operating systems": "Operating Systems",
         "cn": "Computer Networks",
         "computer network": "Computer Networks",
-        "computer networks": "Computer Networks",
         "ds": "Data Structures",
         "data structure": "Data Structures",
-        "data structures": "Data Structures",
         "algo": "Algorithms",
         "algorithms": "Algorithms",
         "daa": "Design and Analysis of Algorithms",
         "se": "Software Engineering",
         "software engineering": "Software Engineering"
     };
-
-    // If the subject is in our dictionary, return the standard name, otherwise capitalize the input and use it
-    if (subjectDictionary[normalized]) {
-        return subjectDictionary[normalized];
-    }
-
-    // Capitalize first letter of unknown subjects as a fallback
-    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+    return subjectDict[normalized] || normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
+// Normalize req.body keys to lowercase
+const normalizeBody = (body) => {
+  const normalized = {};
+  for (let key in body) {
+    normalized[key.toLowerCase()] = body[key];
+  }
+  return normalized;
+};
+
+
+
+
+// ===== UPLOAD FILE =====
 export const uploadFile = async (req, res) => {
     try {
-        let uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+        console.log("FILES:", req.files);
+        console.log("req.body:", req.body);
+        const uploadedFile = req.files && req.files.length > 0 ? req.files[0] : null;
+        if (!uploadedFile) return res.status(400).json({ message: "No file uploaded" });
 
-        if (!uploadedFile) {
-            return res.status(400).json({ message: "No file uploaded" });
-        }
+        const body = normalizeBody(req.body);
+        const { course, subject, topic } = body;
+        if (!course || !subject || !topic)
+            return res.status(400).json({ message: "Course, Subject, and Topic are required" });
 
-        const { course, subject, topic } = req.body;
+        const teacherId = req.user?.id;
+        if (!teacherId) return res.status(401).json({ message: "Unauthorized" });
 
-        if (!course || !subject || !topic) {
-            return res.status(400).json({ message: "Course, Subject, and Topic fields are required" });
-        }
-
-        // Generate a unique Upload ID (e.g., UL-A7B2C)
-        const uploadId = "UL-" + crypto.randomBytes(3).toString('hex').toUpperCase();
-
-        // Convert file buffer to Base64 String
-        const base64String = uploadedFile.buffer.toString('base64');
-
-        let structuredData = [];
-        // Check if it is an Excel file
-        const excelMimeTypes = [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel'
-        ];
-
-        if (excelMimeTypes.includes(uploadedFile.mimetype)) {
-            try {
-                const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                // Convert to JSON
-                structuredData = XLSX.utils.sheet_to_json(worksheet);
-            } catch (excelError) {
-                console.error("Excel parsing error:", excelError);
-                // We'll continue but structuredData will be empty or we could return error
-            }
-        }
-
-        // Normalize the subject name to handle inconsistency
-        const standardSubject = normalizeSubject(subject);
-
-        // Assume tokenChecked middleware has set req.user
-        const teacherId = req.user ? req.user.id : null;
-
-        if (!teacherId) {
-            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
-        }
-
-        // Use teacher's name from token, fallback to DB if missing
-        let actualTeacherName = req.user && req.user.name ? req.user.name : null;
-
-        if (!actualTeacherName) {
-            const teacher = await teacherModel.findById(teacherId);
-            actualTeacherName = teacher && teacher.name ? teacher.name : "Unknown Teacher";
-        }
-
-        // Save to Database
-        const fileRecord = await fileModel.create({
-            course: course,
-            subject: standardSubject,
-            topic: topic,
-            fileName: uploadedFile.originalname,
-            mimeType: uploadedFile.mimetype,
-            contentBase64: base64String,
-            structuredContent: structuredData,
-            uploadId: uploadId,
+        // Prevent duplicate upload for same teacher + subject + topic + course
+        const normalizedSubject = normalizeSubject(subject);
+        const exists = await fileModel.findOne({
             uploadedBy: teacherId,
-            teacherName: actualTeacherName
+            subject: normalizedSubject,
+            topic,
+            course
         });
-
-        // We return the info (exclude the massive base64 string from the success response to save bandwidth)
-        return res.status(200).json({
-            message: "File converted to text and stored in database successfully",
-            resource: {
-                id: fileRecord._id,
-                course: fileRecord.course,
-                subject: fileRecord.subject,
-                topic: fileRecord.topic,
-                fileName: fileRecord.fileName,
-                mimeType: fileRecord.mimeType,
-                uploadId: fileRecord.uploadId
-            }
-        });
-
-    }
-    catch (error) {
-        console.log("Upload error: ", error);
-
-        // Handle multer's limit error specifically
-        if (error.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ message: "File is too large. Maximum size is 10MB to fit in the database." });
+        if (exists) {
+            return res.status(409).json({ message: "You have already uploaded questions for this course/subject/topic" });
         }
 
-        return res.status(500).json({
-            message: "Server error during upload",
-            error: error.message
+        // Parse Excel
+        const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rawData = XLSX.utils.sheet_to_json(worksheet);
+
+        // Case-insensitive column mapping
+        const questions = rawData.map(row => {
+            const questionKey = Object.keys(row).find(k => k.toLowerCase() === "question");
+            const answerKey = Object.keys(row).find(k => k.toLowerCase() === "answer");
+            return questionKey && answerKey ? {
+                question: String(row[questionKey]).trim(),
+                answer: String(row[answerKey]).trim()
+            } : null;
+        }).filter(q => q && q.question && q.answer);
+
+        if (questions.length === 0)
+            return res.status(400).json({ message: "Excel must contain Question and Answer columns with valid values" });
+
+        const uploadId = "UL-" + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+        const fileRecord = await fileModel.create({
+            course,
+            subject: normalizedSubject,
+            topic,
+            uploadedBy: teacherId,
+            questions,
+            uploadId
         });
+
+        
+        return res.status(201).json({
+            message: "Questions uploaded successfully",
+            data: fileRecord
+        });
+
+    } catch (error) {
+        console.error("Upload error:", error);
+        return res.status(500).json({ message: "Server error during upload" });
     }
 };
 
+// ===== UPDATE FILE =====
 export const updateFile = async (req, res) => {
     try {
-        const fileId = req.params.id;
-        const teacherId = req.user ? req.user.id : null;
+        const { id } = req.params;
+        const teacherId = req.user?.id;
 
-        if (!teacherId) {
-            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
-        }
+        if (!teacherId) return res.status(401).json({ message: "Unauthorized" });
+        if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid file ID" });
 
-        const { course, subject, topic } = req.body;
+        const file = await fileModel.findOne({ _id: id, uploadedBy: teacherId });
+        if (!file) return res.status(404).json({ message: "File not found or unauthorized" });
 
-        const file = await fileModel.findOne({ _id: fileId, uploadedBy: teacherId });
-        if (!file) {
-            return res.status(404).json({ message: "File not found or unauthorized" });
-        }
+        const body  = normalizeBody(req.body);
+        const { course, subject, topic } = body;
 
+        // Update metadata
         if (course) file.course = course;
-        if (subject) {
-            file.subject = normalizeSubject(subject);
-        }
-        if (topic) {
-            file.topic = topic;
-        }
+        if (subject) file.subject = normalizeSubject(subject);
+        if (topic) file.topic = topic;
 
-        let uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
-
+        const uploadedFile = req.files?.[0];
         if (uploadedFile) {
-            file.fileName = uploadedFile.originalname;
-            file.mimeType = uploadedFile.mimetype;
-            file.contentBase64 = uploadedFile.buffer.toString('base64');
+            const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawData = XLSX.utils.sheet_to_json(worksheet);
 
-            // Parse if Excel
-            const excelMimeTypes = [
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-excel'
-            ];
-            if (excelMimeTypes.includes(uploadedFile.mimetype)) {
-                try {
-                    const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    file.structuredContent = XLSX.utils.sheet_to_json(worksheet);
-                } catch (excelError) {
-                    console.error("Excel update parsing error:", excelError);
-                }
-            }
+            const questions = rawData.map(row => {
+                const questionKey = Object.keys(row).find(k => k.toLowerCase() === "question");
+                const answerKey = Object.keys(row).find(k => k.toLowerCase() === "answer");
+                return questionKey && answerKey ? {
+                    question: String(row[questionKey]).trim(),
+                    answer: String(row[answerKey]).trim()
+                } : null;
+            }).filter(q => q && q.question && q.answer);
+
+            if (questions.length === 0)
+                return res.status(400).json({ message: "Excel must contain Question and Answer columns" });
+
+            file.questions = questions;
         }
 
         await file.save();
 
-        return res.status(200).json({
-            message: "File updated successfully",
-            resource: {
-                id: file._id,
-                course: file.course,
-                subject: file.subject,
-                topic: file.topic,
-                fileName: file.fileName,
-                mimeType: file.mimeType
-            }
-        });
+        return res.status(200).json({ message: "File updated successfully", data: file });
+
     } catch (error) {
-        console.log("Update file error:", error);
-        if (error.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).json({ message: "File is too large. Maximum size is 10MB." });
-        }
+        console.error("Update error:", error);
         return res.status(500).json({ message: "Server error during update" });
     }
 };
 
+// ===== DELETE FILE =====
 export const deleteFile = async (req, res) => {
     try {
-        const fileId = req.params.id;
-        const teacherId = req.user ? req.user.id : null;
+        const { id } = req.params;
+        const teacherId = req.user?.id;
 
-        if (!teacherId) {
-            return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
-        }
+        if (!teacherId) return res.status(401).json({ message: "Unauthorized" });
+        if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "Invalid file ID" });
 
-        const file = await fileModel.findOneAndDelete({ _id: fileId, uploadedBy: teacherId });
-        if (!file) {
-            return res.status(404).json({ message: "File not found or unauthorized to delete" });
-        }
+        const deleted = await fileModel.findOneAndDelete({ _id: id, uploadedBy: teacherId });
+        if (!deleted) return res.status(404).json({ message: "File not found or unauthorized" });
 
-        return res.status(200).json({ message: "File deleted successfully", fileId });
+        return res.status(200).json({ message: "Deleted successfully", id: deleted._id });
+
     } catch (error) {
-        console.log("Delete file error:", error);
+        console.error("Delete error:", error);
         return res.status(500).json({ message: "Server error during deletion" });
-    }
-};
-
-// New endpoint: Retrieve the single file's full data (including Base64 text) natively in JSON
-// New endpoint: Send the pure, readable file natively (NO JSON)
-export const viewFile = async (req, res) => {
-    try {
-        const fileId = req.params.id;
-        const file = await fileModel.findById(fileId);
-
-        if (!file) {
-            return res.status(404).json({ message: "File not found" });
-        }
-
-        // Decode the storage base64 back into the actual, readable file
-        const fileBuffer = Buffer.from(file.contentBase64, 'base64');
-
-        // Set Headers so the frontend completely skips JSON and renders the actual file!
-        res.setHeader('Content-Type', file.mimeType);
-        res.setHeader('Content-Disposition', `inline; filename="${file.fileName}"`);
-
-        // Send the pure readable file
-        return res.send(fileBuffer);
-    } catch (error) {
-        console.log("View file error:", error);
-        return res.status(500).json({ message: "Server error during file fetch" });
     }
 };
