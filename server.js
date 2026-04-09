@@ -2,9 +2,9 @@ import connectDB from "./config/db.js";
 import express from "express";
 import dotenv from "dotenv";
 import router from "./routes/authRoutes.js";
+import publicRouter from "./routes/publicRoutes.js";
 
-
-// Load .env file
+// Load .env file   
 dotenv.config({ path: './oceanwaves.env' });
 
 const app = express();
@@ -19,6 +19,7 @@ connectDB();
 
 
 app.use("/lkctc/oceanwaves", router);
+app.use("/lkctc/oceanwaves/public", publicRouter);
 
 // Start the server
 app.listen(PORT, () => {
