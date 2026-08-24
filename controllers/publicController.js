@@ -1,4 +1,5 @@
 import fileModel from "../models/fileUpload.js";
+import { normalizeCourse, SUPPORTED_COURSES } from "../utils/normalize.js";
 
 export const getPublicQuestions = async (req, res) => {
   try {
@@ -7,7 +8,15 @@ export const getPublicQuestions = async (req, res) => {
 
     const FREE_LIMIT = 3;
     const query = {};
-    if (course) query.course = course;
+    if (course) {
+      const normalizedCourse = normalizeCourse(course);
+      if (!normalizedCourse) {
+        return res.status(400).json({
+          message: `Invalid course: '${course}'. Supported courses are: ${SUPPORTED_COURSES.join(", ")}`
+        });
+      }
+      query.course = normalizedCourse;
+    }
     if (subject) query.subject = subject;
     if (topic) query.topic = topic;
 

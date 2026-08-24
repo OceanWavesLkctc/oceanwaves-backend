@@ -5,6 +5,7 @@ import fileModel from "../models/fileUpload.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { normalizeCourse, SUPPORTED_COURSES } from "../utils/normalize.js";
 dotenv.config({ path: './oceanwaves.env' });
 
 export const signup = async (req, res) => {
@@ -12,6 +13,17 @@ export const signup = async (req, res) => {
 
     try {
         const { name, email, password, rollnumber, course, department, role } = req.body;
+
+        if (!course) {
+            return res.status(400).json({ message: "Course is required" });
+        }
+
+        const normalizedCourse = normalizeCourse(course);
+        if (!normalizedCourse) {
+            return res.status(400).json({
+                message: `Invalid course: '${course}'. Supported courses are: ${SUPPORTED_COURSES.join(", ")}`
+            });
+        }
 
         const exist = await userModel.findOne({ email });
         if (exist) {
@@ -31,7 +43,7 @@ export const signup = async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            course,
+            course: normalizedCourse,
             department,
             rollnumber,
             role
@@ -39,7 +51,7 @@ export const signup = async (req, res) => {
 
         await newUser.save();
 
-        // IMPORTANT RESPONSE
+
         res.status(201).json({
             message: "User registered successfully",
             user: newUser
@@ -125,7 +137,7 @@ export const forgotPassword = async (req, res) => {
 
         const resetToken = crypto.randomBytes(20).toString('hex');
         user.resetPasswordToken = resetToken;
-        user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiration
+        user.resetPasswordExpires = Date.now() + 3600000;
         await user.save();
 
         res.status(200).json({
@@ -171,14 +183,14 @@ export const studentDashboard = async (req, res) => {
     try {
         const studentId = req.user.id;
         const student = await userModel.findById(studentId);
-        
+
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
 
-        const studentCourse = student.course;
+        const studentCourse = normalizeCourse(student.course) || student.course;
 
-        // Fetch files perfectly matched to the student's enrolled course
+
         const files = await fileModel.find({ course: studentCourse })
             .populate("uploadedBy", "name email department")
             .sort({ createdAt: -1 });

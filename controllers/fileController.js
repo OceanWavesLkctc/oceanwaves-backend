@@ -4,7 +4,7 @@ import teacherModel from "../models/teacher.js";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import crypto from "crypto";
-
+import { normalizeCourse, SUPPORTED_COURSES } from "../utils/normalize.js";
 const storage = multer.memoryStorage();
 
 
@@ -65,6 +65,13 @@ export const uploadFile = async (req, res) => {
             return res.status(400).json({ message: "Course, Subject, and Topic fields are required" });
         }
 
+        const normalizedCourse = normalizeCourse(course);
+        if (!normalizedCourse) {
+            return res.status(400).json({
+                message: `Invalid course: '${course}'. Supported courses are: ${SUPPORTED_COURSES.join(", ")}`
+            });
+        }
+
         // Generate a unique Upload ID (e.g., UL-A7B2C)
         const uploadId = "UL-" + crypto.randomBytes(3).toString('hex').toUpperCase();
 
@@ -111,7 +118,7 @@ export const uploadFile = async (req, res) => {
 
         // Save to Database
         const fileRecord = await fileModel.create({
-            course: course,
+            course: normalizedCourse,
             subject: standardSubject,
             topic: topic,
             fileName: uploadedFile.originalname,
@@ -169,7 +176,15 @@ export const updateFile = async (req, res) => {
             return res.status(404).json({ message: "File not found or unauthorized" });
         }
 
-        if (course) file.course = course;
+        if (course !== undefined) {
+            const normalizedCourse = normalizeCourse(course);
+            if (!normalizedCourse) {
+                return res.status(400).json({
+                    message: `Invalid course: '${course}'. Supported courses are: ${SUPPORTED_COURSES.join(", ")}`
+                });
+            }
+            file.course = normalizedCourse;
+        }
         if (subject) {
             file.subject = normalizeSubject(subject);
         }

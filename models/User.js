@@ -1,6 +1,7 @@
 //User.js
 
-import mongoose from "mongoose"
+import mongoose from "mongoose";
+import { SUPPORTED_COURSES } from "../utils/normalize.js";
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -28,6 +29,7 @@ const userSchema = new mongoose.Schema({
     {
         type: String,
         required: true,
+        enum: SUPPORTED_COURSES
     },
     department:
     {

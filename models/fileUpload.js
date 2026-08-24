@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { SUPPORTED_COURSES } from "../utils/normalize.js";
 
 const fileSchema = new mongoose.Schema({
     course: {
         type: String,
         required: true,
-        default: "General"
+        enum: SUPPORTED_COURSES
     },
     subject: {
         type: String,

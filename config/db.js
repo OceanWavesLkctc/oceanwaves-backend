@@ -5,7 +5,7 @@ mongoose.set('bufferCommands', false);
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-        console.log("MongoDB Connected Successfully to Atlas");
+        console.log("DataBase Connected Successfully");
     } catch (error) {
         console.error("Database connection failed:", error.message);
         console.log("Attempting connection to local MongoDB...");
