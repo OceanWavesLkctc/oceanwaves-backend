@@ -91,24 +91,23 @@ export const teacherLogin = async (req, res) => {
 };
 
 
-// export const teacherDashboard = async (req, res) => {
-//     try {
-//         const teacherId = req.user.id;
+export const teacherDashboard = async (req, res) => {
+    try {
+        const teacherId = req.user.id;
 
-//         // Fetch files uploaded by this teacher, sorted by newest first
-//         const files = await fileModel.find({ uploadedBy: teacherId })
-//             .select('-contentBase64') // Exclude heavy file content
-//             .sort({ createdAt: -1 });
+        // Fetch files uploaded by this teacher, sorted by newest first
+        const files = await fileModel.find({ uploadedBy: teacherId })
+            .sort({ createdAt: -1 });
 
-//         return res.status(200).json({
-//             message: "Welcome to dashboard",
-//             files: files
-//         });
-//     } catch (error) {
-//         console.log("Dashboard fetch error:", error);
-//         return res.status(500).json({ message: "Error fetching dashboard data" });
-//     }
-// };
+        return res.status(200).json({
+            message: "Welcome to dashboard",
+            files: files
+        });
+    } catch (error) {
+        console.log("Dashboard fetch error:", error);
+        return res.status(500).json({ message: "Error fetching dashboard data" });
+    }
+};
 
 export const teacherLogout = async (req, res) => {
     console.log("logout api hit");

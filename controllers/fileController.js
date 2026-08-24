@@ -178,3 +178,26 @@ export const deleteFile = async (req, res) => {
         return res.status(500).json({ message: "Server error during deletion" });
     }
 };
+
+// ===== VIEW SINGLE FILE =====
+export const viewFile = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({ message: "Invalid file ID" });
+        }
+
+        const file = await fileModel.findById(id).populate("uploadedBy", "name email department");
+        if (!file) {
+            return res.status(404).json({ message: "File not found" });
+        }
+
+        return res.status(200).json({
+            message: "File retrieved successfully",
+            data: file
+        });
+    } catch (error) {
+        console.error("View file error:", error);
+        return res.status(500).json({ message: "Server error during file retrieval" });
+    }
+};

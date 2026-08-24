@@ -167,29 +167,29 @@ export const resetPassword = async (req, res) => {
     }
 };
 
-// export const studentDashboard = async (req, res) => {
-//     try {
-//         const studentId = req.user.id;
-//         const student = await userModel.findById(studentId);
+export const studentDashboard = async (req, res) => {
+    try {
+        const studentId = req.user.id;
+        const student = await userModel.findById(studentId);
         
-//         if (!student) {
-//             return res.status(404).json({ message: "Student not found" });
-//         }
+        if (!student) {
+            return res.status(404).json({ message: "Student not found" });
+        }
 
-//         const studentCourse = student.course;
+        const studentCourse = student.course;
 
-//         // Fetch files perfectly matched to the student's enrolled course
-//         const files = await fileModel.find({ course: studentCourse })
-//             .select('-contentBase64') // Keep the dashboard lightweight
-//             .sort({ createdAt: -1 });
+        // Fetch files perfectly matched to the student's enrolled course
+        const files = await fileModel.find({ course: studentCourse })
+            .populate("uploadedBy", "name email department")
+            .sort({ createdAt: -1 });
 
-//         return res.status(200).json({
-//             message: "Student dashboard loaded successfully",
-//             course: studentCourse,
-//             files: files
-//         });
-//     } catch (error) {
-//         console.log("Student dashboard error:", error);
-//         return res.status(500).json({ message: "Server error fetching student dashboard" });
-//     }
-// };
+        return res.status(200).json({
+            message: "Student dashboard loaded successfully",
+            course: studentCourse,
+            files: files
+        });
+    } catch (error) {
+        console.log("Student dashboard error:", error);
+        return res.status(500).json({ message: "Server error fetching student dashboard" });
+    }
+};

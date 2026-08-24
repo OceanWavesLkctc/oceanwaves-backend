@@ -1,13 +1,20 @@
 import mongoose from "mongoose";
 
+mongoose.set('bufferCommands', false);
+
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGO_URI);
-
-        console.log("MongoDB Connected Successfully");
+        console.log("MongoDB Connected Successfully to Atlas");
     } catch (error) {
-        console.error("Database connection failed:", error);
-        process.exit(1);
+        console.error("Database connection failed:", error.message);
+        console.log("Attempting connection to local MongoDB...");
+        try {
+            await mongoose.connect("mongodb://127.0.0.1:27017/oceanwaves");
+            console.log("Connected to local MongoDB successfully");
+        } catch (localErr) {
+            console.error("Local MongoDB also failed. Server will run with database offline.");
+        }
     }
 };
 
