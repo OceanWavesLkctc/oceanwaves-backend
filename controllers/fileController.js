@@ -75,27 +75,36 @@ export const uploadFile = async (req, res) => {
         // Generate a unique Upload ID (e.g., UL-A7B2C)
         const uploadId = "UL-" + crypto.randomBytes(3).toString('hex').toUpperCase();
 
-        // Convert file buffer to Base64 String
-        const base64String = uploadedFile.buffer.toString('base64');
-
-        let structuredData = [];
-        // Check if it is an Excel file
-        const excelMimeTypes = [
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel'
-        ];
-
-        if (excelMimeTypes.includes(uploadedFile.mimetype)) {
-            try {
-                const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+        let questions = [];
+        try {
+            const workbook = XLSX.read(uploadedFile.buffer, { type: 'buffer' });
+            if (workbook.SheetNames && workbook.SheetNames.length > 0) {
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
-                // Convert to JSON
-                structuredData = XLSX.utils.sheet_to_json(worksheet);
-            } catch (excelError) {
-                console.error("Excel parsing error:", excelError);
-                // We'll continue but structuredData will be empty or we could return error
+                const rawRows = XLSX.utils.sheet_to_json(worksheet);
+
+                questions = rawRows.map(row => {
+                    const keys = Object.keys(row);
+                    const qKey = keys.find(k => {
+                        const l = k.trim().toLowerCase();
+                        return l.includes('question') || l === 'q' || l === 'ques' || l === 'problem';
+                    });
+                    const aKey = keys.find(k => {
+                        const l = k.trim().toLowerCase();
+                        return l.includes('answer') || l === 'ans' || l === 'a' || l === 'solution';
+                    });
+
+                    const questionVal = qKey ? String(row[qKey]).trim() : (keys[0] ? String(row[keys[0]]).trim() : '');
+                    const answerVal = aKey ? String(row[aKey]).trim() : (keys[1] ? String(row[keys[1]]).trim() : '');
+
+                    return {
+                        question: questionVal,
+                        answer: answerVal
+                    };
+                }).filter(q => q.question && q.answer);
             }
+        } catch (excelError) {
+            console.error("Excel parsing error:", excelError);
         }
 
         // Normalize the subject name to handle inconsistency
@@ -108,29 +117,16 @@ export const uploadFile = async (req, res) => {
             return res.status(401).json({ message: "Unauthorized. Teacher ID not found." });
         }
 
-        // Use teacher's name from token, fallback to DB if missing
-        let actualTeacherName = req.user && req.user.name ? req.user.name : null;
-
-        if (!actualTeacherName) {
-            const teacher = await teacherModel.findById(teacherId);
-            actualTeacherName = teacher && teacher.name ? teacher.name : "Unknown Teacher";
-        }
-
         // Save to Database
         const fileRecord = await fileModel.create({
             course: normalizedCourse,
             subject: standardSubject,
             topic: topic,
-            fileName: uploadedFile.originalname,
-            mimeType: uploadedFile.mimetype,
-            contentBase64: base64String,
-            structuredContent: structuredData,
             uploadId: uploadId,
             uploadedBy: teacherId,
-            teacherName: actualTeacherName
+            questions: questions
         });
 
-        // We return the info (exclude the massive base64 string from the success response to save bandwidth)
         return res.status(200).json({
             message: "File converted to text and stored in database successfully",
             resource: {
@@ -138,9 +134,8 @@ export const uploadFile = async (req, res) => {
                 course: fileRecord.course,
                 subject: fileRecord.subject,
                 topic: fileRecord.topic,
-                fileName: fileRecord.fileName,
-                mimeType: fileRecord.mimeType,
-                uploadId: fileRecord.uploadId
+                uploadId: fileRecord.uploadId,
+                totalQuestions: questions.length
             }
         });
 
