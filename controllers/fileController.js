@@ -39,7 +39,16 @@ const normalizeSubject = (subjectInput) => {
         "algorithms": "Algorithms",
         "daa": "Design and Analysis of Algorithms",
         "se": "Software Engineering",
-        "software engineering": "Software Engineering"
+        "software engineering": "Software Engineering",
+        "java": "Java",
+        "web tech": "Web Technology",
+        "c language": "C Language",
+        "c++": "C++",
+        "python": "Python",
+        "maths": "Mathematics",
+        "calculus": "Calculus",
+        "ai": "Artificial Intelligence",
+        "machine learning": "Machine Learning"
     };
 
     // If the subject is in our dictionary, return the standard name, otherwise capitalize the input and use it
